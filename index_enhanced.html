@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Exoplanet Detection - Hybrid CNN+LSTM</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #667eea;
+            --secondary-color: #764ba2;
+            --success-color: #4ecdc4;
+            --danger-color: #ff6b6b;
+            --dark-color: #2d3748;
+            --light-color: #f7fafc;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            min-height: 100vh;
+            color: var(--dark-color);
+        }
+        
+        .main-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            margin: 30px auto;
+            max-width: 1400px;
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-weight: 700;
+            margin-bottom: 10px;
+            font-size: 2.5rem;
+        }
+        
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+        
+        .nav-tabs {
+            border-bottom: none;
+            background: var(--light-color);
+            padding: 15px 30px 0;
+        }
+        
+        .nav-tabs .nav-link {
+            border: none;
+            color: var(--dark-color);
+            font-weight: 600;
+            padding: 12px 24px;
+            border-radius: 10px 10px 0 0;
+            margin-right: 10px;
+            transition: all 0.3s ease;
+        }
+        
+        .nav-tabs .nav-link.active {
+            background: white;
+            color: var(--primary-color);
+            box-shadow: 0 -5px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .nav-tabs .nav-link:hover {
+            background: rgba(255, 255, 255, 0.5);
+        }
+        
+        .tab-content {
+            padding: 30px;
+        }
+        
+        .upload-area {
+            border: 3px dashed var(--primary-color);
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            background: var(--light-color);
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .upload-area:hover {
+            background: rgba(102, 126, 234, 0.1);
+            border-color: var(--secondary-color);
+        }
+        
+        .upload-area.dragover {
+            background: rgba(102, 126, 234, 0.2);
+            border-color: var(--secondary-color);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            border: none;
+            border-radius: 10px;
+            padding: 12px 30px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        }
+        
+        .result-card {
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        
+        .result-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+        }
+        
+        .prediction-positive {
+            border-left: 5px solid var(--success-color);
+        }
+        
+        .prediction-negative {
+            border-left: 5px solid var(--danger-color);
+        }
+        
+        .confidence-bar {
+            height: 30px;
+            border-radius: 15px;
+            overflow: hidden;
+            background: var(--light-color);
+            position: relative;
+        }
+        
+        .confidence-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--success-color), var(--primary-color));
+            transition: width 1s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+        }
+        
+        .model-info-card {
+            background: linear-gradient(135deg, var(--light-color) 0%, white 100%);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+        }
+        
+        .feature-badge {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin: 5px;
+            background: var(--primary-color);
+            color: white;
+        }
+        
+        .loading-spinner {
+            display: none;
+            text-align: center;
+            padding: 50px;
+        }
+        
+        .loading-spinner.active {
+            display: block;
+        }
+        
+        .spinner-border {
+            width: 3rem;
+            height: 3rem;
+            border-width: 0.3rem;
+        }
+        
+        .batch-results {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+        }
+        
+        .batch-item {
+            padding: 10px;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .batch-item:last-child {
+            border-bottom: none;
+        }
+        
+        .batch-item.exoplanet {
+            background: rgba(78, 205, 196, 0.1);
+        }
+        
+        .batch-item.no-exoplanet {
+            background: rgba(255, 107, 107, 0.1);
+        }
+        
+        .stats-card {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+        
+        .stats-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+        }
+        
+        .stats-number {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--primary-color);
+        }
+        
+        .progress {
+            height: 10px;
+            border-radius: 5px;
+            overflow: hidden;
+            background: var(--light-color);
+        }
+        
+        .progress-bar {
+            background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+        
+        .alert {
+            border-radius: 10px;
+            border: none;
+        }
+        
+        .plot-container {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-top: 20px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .plot-container img {
+            width: 100%;
+            height: auto;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <div class="header">
+            <h1><i class="fas fa-satellite"></i> Enhanced Exoplanet Detection</h1>
+            <p>Hybrid CNN+LSTM Deep Learning Model with Attention Mechanism</p>
+        </div>
+        
+        <ul class="nav nav-tabs" id="mainTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="single-tab" data-bs-toggle="tab" data-bs-target="#single" type="button" role="tab">
+                    <i class="fas fa-chart-line"></i> Single Prediction
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="batch-tab" data-bs-toggle="tab" data-bs-target="#batch" type="button" role="tab">
+                    <i class="fas fa-layer-group"></i> Batch Processing
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="model-tab" data-bs-toggle="tab" data-bs-target="#model" type="button" role="tab">
+                    <i class="fas fa-cog"></i> Model Info
+                </button>
+            </li>
+        </ul>
+        
+        <div class="tab-content" id="mainTabContent">
+            <!-- Single Prediction Tab -->
+            <div class="tab-pane fade show active" id="single" role="tabpanel">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="upload-area" id="uploadArea">
+                            <i class="fas fa-cloud-upload-alt fa-3x mb-3 text-primary"></i>
+                            <h4>Upload Light Curve Data</h4>
+                            <p class="text-muted">Drop CSV file here or click to browse</p>
+                            <input type="file" id="fileInput" accept=".csv" style="display: none;">
+                            <button class="btn btn-primary mt-3">
+                                <i class="fas fa-folder-open"></i> Choose File
+                            </button>
+                        </div>
+                        
+                        <div class="mt-3">
+                            <button class="btn btn-success w-100" id="predictBtn" disabled>
+                                <i class="fas fa-brain"></i> Analyze with Enhanced AI
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="model-info-card">
+                            <h5><i class="fas fa-info-circle"></i> Model Features</h5>
+                            <div class="d-flex flex-wrap">
+                                <span class="feature-badge">Attention Mechanism</span>
+                                <span class="feature-badge">Residual Connections</span>
+                                <span class="feature-badge">Layer Normalization</span>
+                                <span class="feature-badge">Bidirectional LSTM</span>
+                                <span class="feature-badge">Advanced Augmentation</span>
+                            </div>
+                        </div>
+                        
+                        <div id="modelStatus" class="model-info-card">
+                            <h6><i class="fas fa-heartbeat"></i> Model Status</h6>
+                            <div class="d-flex align-items-center">
+                                <div class="spinner-border spinner-border-sm me-2" id="statusSpinner"></div>
+                                <span id="statusText">Checking...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="loading-spinner" id="loadingSpinner">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-3">Analyzing light curve with enhanced AI model...</p>
+                </div>
+                
+                <div id="resultContainer" style="display: none;">
+                    <!-- Results will be inserted here -->
+                </div>
+            </div>
+            
+            <!-- Batch Processing Tab -->
+            <div class="tab-pane fade" id="batch" role="tabpanel">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="upload-area" id="batchUploadArea">
+                            <i class="fas fa-file-csv fa-3x mb-3 text-primary"></i>
+                            <h4>Upload Multiple Light Curves</h4>
+                            <p class="text-muted">CSV file with multiple light curve observations</p>
+                            <input type="file" id="batchFileInput" accept=".csv" style="display: none;">
+                            <button class="btn btn-primary mt-3">
+                                <i class="fas fa-folder-open"></i> Choose File
+                            </button>
+                        </div>
+                        
+                        <div class="mt-3">
+                            <button class="btn btn-success w-100" id="batchPredictBtn" disabled>
+                                <i class="fas fa-rocket"></i> Process Batch
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="model-info-card">
+                            <h5><i class="fas fa-chart-bar"></i> Batch Statistics</h5>
+                            <div class="row text-center">
+                                <div class="col-6">
+                                    <div class="stats-card">
+                                        <div class="stats-number" id="totalSamples">0</div>
+                                        <div>Total Samples</div>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="stats-card">
+                                        <div class="stats-number" id="exoplanetCount">0</div>
+                                        <div>Exoplanets</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="loading-spinner" id="batchLoadingSpinner">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Processing...</span>
+                    </div>
+                    <p class="mt-3">Processing batch with enhanced AI model...</p>
+                    <div class="progress">
+                        <div class="progress-bar" id="batchProgress" role="progressbar" style="width: 0%"></div>
+                    </div>
+                </div>
+                
+                <div id="batchResultContainer" style="display: none;">
+                    <!-- Batch results will be inserted here -->
+                </div>
+            </div>
+            
+            <!-- Model Info Tab -->
+            <div class="tab-pane fade" id="model" role="tabpanel">
+                <div class="row">
+                    <div class="col-md-12">
+                        <div class="model-info-card">
+                            <h4><i class="fas fa-microchip"></i> Enhanced Model Architecture</h4>
+                            <div id="modelArchitectureInfo">
+                                <!-- Model info will be loaded here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row mt-4">
+                    <div class="col-md-6">
+                        <div class="model-info-card">
+                            <h5><i class="fas fa-cogs"></i> Configuration</h5>
+                            <div id="modelConfigInfo">
+                                <!-- Configuration will be loaded here -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="model-info-card">
+                            <h5><i class="fas fa-chart-line"></i> Performance Metrics</h5>
+                            <div id="modelMetricsInfo">
+                                <!-- Metrics will be loaded here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Global variables
+        let selectedFile = null;
+        let batchSelectedFile = null;
+        let modelInfo = null;
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            checkModelStatus();
+            setupEventListeners();
+        });
+        
+        // Check model status
+        async function checkModelStatus() {
+            try {
+                const response = await fetch('/health');
+                const data = await response.json();
+                
+                const statusText = document.getElementById('statusText');
+                const statusSpinner = document.getElementById('statusSpinner');
+                
+                if (data.model_loaded) {
+                    statusText.textContent = `Enhanced ${data.model_type} Ready`;
+                    statusSpinner.className = 'spinner-border spinner-border-sm me-2 text-success';
+                } else {
+                    statusText.textContent = 'Model Not Loaded';
+                    statusSpinner.className = 'spinner-border spinner-border-sm me-2 text-danger';
+                }
+            } catch (error) {
+                document.getElementById('statusText').textContent = 'Error checking status';
+                console.error('Error checking model status:', error);
+            }
+        }
+        
+        // Setup event listeners
+        function setupEventListeners() {
+            // Single prediction file upload
+            const uploadArea = document.getElementById('uploadArea');
+            const fileInput = document.getElementById('fileInput');
+            
+            uploadArea.addEventListener('click', () => fileInput.click());
+            fileInput.addEventListener('change', handleFileSelect);
+            
+            // Drag and drop
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.classList.add('dragover');
+            });
+            
+            uploadArea.addEventListener('dragleave', () => {
+                uploadArea.classList.remove('dragover');
+            });
+            
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.classList.remove('dragover');
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    handleFile(files[0]);
+                }
+            });
+            
+            // Predict button
+            document.getElementById('predictBtn').addEventListener('click', makePrediction);
+            
+            // Batch prediction
+            const batchUploadArea = document.getElementById('batchUploadArea');
+            const batchFileInput = document.getElementById('batchFileInput');
+            
+            batchUploadArea.addEventListener('click', () => batchFileInput.click());
+            batchFileInput.addEventListener('change', handleBatchFileSelect);
+            
+            batchUploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                batchUploadArea.classList.add('dragover');
+            });
+            
+            batchUploadArea.addEventListener('dragleave', () => {
+                batchUploadArea.classList.remove('dragover');
+            });
+            
+            batchUploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                batchUploadArea.classList.remove('dragover');
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    handleBatchFile(files[0]);
+                }
+            });
+            
+            document.getElementById('batchPredictBtn').addEventListener('click', makeBatchPrediction);
+            
+            // Tab listeners
+            document.getElementById('model-tab').addEventListener('shown.bs.tab', loadModelInfo);
+        }
+        
+        // File handling
+        function handleFileSelect(e) {
+            const file = e.target.files[0];
+            if (file) {
+                handleFile(file);
+            }
+        }
+        
+        function handleFile(file) {
+            if (!file.name.endsWith('.csv')) {
+                showAlert('Please select a CSV file', 'danger');
+                return;
+            }
+            
+            selectedFile = file;
+            document.getElementById('predictBtn').disabled = false;
+            showAlert(`File selected: ${file.name}`, 'success');
+        }
+        
+        function handleBatchFileSelect(e) {
+            const file = e.target.files[0];
+            if (file) {
+                handleBatchFile(file);
+            }
+        }
+        
+        function handleBatchFile(file) {
+            if (!file.name.endsWith('.csv')) {
+                showAlert('Please select a CSV file', 'danger');
+                return;
+            }
+            
+            batchSelectedFile = file;
+            document.getElementById('batchPredictBtn').disabled = false;
+            showAlert(`Batch file selected: ${file.name}`, 'success');
+        }
+        
+        // Single prediction
+        async function makePrediction() {
+            if (!selectedFile) {
+                showAlert('Please select a file first', 'warning');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+            
+            document.getElementById('loadingSpinner').classList.add('active');
+            document.getElementById('resultContainer').style.display = 'none';
+            
+            try {
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    displayResult(data);
+                } else {
+                    showAlert(data.error || 'Prediction failed', 'danger');
+                }
+            } catch (error) {
+                showAlert('Error making prediction: ' + error.message, 'danger');
+                console.error('Prediction error:', error);
+            } finally {
+                document.getElementById('loadingSpinner').classList.remove('active');
+            }
+        }
+        
+        // Display single prediction result
+        function displayResult(data) {
+            const resultContainer = document.getElementById('resultContainer');
+            
+            const isPositive = data.prediction.includes('Exoplanet');
+            const cardClass = isPositive ? 'prediction-positive' : 'prediction-negative';
+            const iconClass = isPositive ? 'fa-check-circle' : 'fa-times-circle';
+            const iconColor = isPositive ? 'text-success' : 'text-danger';
+            
+            resultContainer.innerHTML = `
+                <div class="result-card ${cardClass}">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h5><i class="fas ${iconClass} ${iconColor}"></i> Prediction Result</h5>
+                                <h3 class="${iconColor}">${data.prediction}</h3>
+                                <p><strong>Confidence:</strong> ${(data.confidence * 100).toFixed(1)}%</p>
+                                <p><strong>Probability:</strong> ${(data.probability * 100).toFixed(1)}%</p>
+                                <p><strong>Data Points:</strong> ${data.data_points}</p>
+                                <p><strong>Processing Time:</strong> ${data.processing_time.toFixed(3)}s</p>
+                                
+                                <div class="mt-3">
+                                    <div class="confidence-bar">
+                                        <div class="confidence-fill" style="width: ${data.confidence * 100}%">
+                                            ${(data.confidence * 100).toFixed(1)}%
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <h5>Model Features Used</h5>
+                                <div class="d-flex flex-wrap">
+                                    ${data.model_features ? Object.entries(data.model_features).map(([key, value]) => 
+                                        `<span class="feature-badge">${key.replace('_', ' ')}: ${value ? '✓' : '✗'}</span>`
+                                    ).join('') : ''}
+                                </div>
+                                
+                                <div class="mt-3">
+                                    <small class="text-muted">
+                                        <i class="fas fa-info-circle"></i> 
+                                        Enhanced ${data.model_type} analysis completed at ${new Date(data.timestamp).toLocaleString()}
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="plot-container">
+                    <h5><i class="fas fa-chart-area"></i> Light Curve Analysis</h5>
+                    <img src="data:image/png;base64,${data.plot}" alt="Light Curve Analysis">
+                </div>
+            `;
+            
+            resultContainer.style.display = 'block';
+            
+            // Animate confidence bar
+            setTimeout(() => {
+                document.querySelector('.confidence-fill').style.width = `${data.confidence * 100}%`;
+            }, 100);
+        }
+        
+        // Batch prediction
+        async function makeBatchPrediction() {
+            if (!batchSelectedFile) {
+                showAlert('Please select a batch file first', 'warning');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('file', batchSelectedFile);
+            
+            document.getElementById('batchLoadingSpinner').classList.add('active');
+            document.getElementById('batchResultContainer').style.display = 'none';
+            
+            try {
+                const response = await fetch('/batch_predict', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    displayBatchResults(data);
+                } else {
+                    showAlert(data.error || 'Batch prediction failed', 'danger');
+                }
+            } catch (error) {
+                showAlert('Error making batch prediction: ' + error.message, 'danger');
+                console.error('Batch prediction error:', error);
+            } finally {
+                document.getElementById('batchLoadingSpinner').classList.remove('active');
+            }
+        }
+        
+        // Display batch results
+        function displayBatchResults(data) {
+            const resultContainer = document.getElementById('batchResultContainer');
+            
+            // Update statistics
+            document.getElementById('totalSamples').textContent = data.total;
+            document.getElementById('exoplanetCount').textContent = data.exoplanets_detected;
+            
+            // Create results table
+            let resultsHtml = `
+                <div class="model-info-card">
+                    <h5><i class="fas fa-list"></i> Batch Results</h5>
+                    <p><strong>Total:</strong> ${data.total} samples | 
+                       <strong>Successful:</strong> ${data.successful} | 
+                       <strong>Exoplanets:</strong> ${data.exoplanets_detected} (${(data.detection_rate * 100).toFixed(1)}%) |
+                       <strong>Processing Time:</strong> ${data.processing_time.toFixed(2)}s</p>
+                    
+                    <div class="batch-results">
+                        <div class="batch-item">
+                            <strong>Sample ID</strong>
+                            <strong>Prediction</strong>
+                            <strong>Confidence</strong>
+                            <strong>Probability</strong>
+                        </div>
+            `;
+            
+            data.results.forEach(result => {
+                const isExoplanet = result.prediction === 'Exoplanet';
+                const rowClass = isExoplanet ? 'exoplanet' : 'no-exoplanet';
+                const icon = isExoplanet ? 'fa-check-circle text-success' : 'fa-times-circle text-danger';
+                
+                resultsHtml += `
+                    <div class="batch-item ${rowClass}">
+                        <span><i class="fas ${icon}"></i> ${result.sample_id}</span>
+                        <span>${result.prediction}</span>
+                        <span>${(result.confidence * 100).toFixed(1)}%</span>
+                        <span>${(result.probability * 100).toFixed(1)}%</span>
+                    </div>
+                `;
+            });
+            
+            resultsHtml += '</div></div>';
+            resultContainer.innerHTML = resultsHtml;
+            resultContainer.style.display = 'block';
+        }
+        
+        // Load model information
+        async function loadModelInfo() {
+            try {
+                // Load model info
+                const modelResponse = await fetch('/model_info');
+                const modelData = await modelResponse.json();
+                
+                // Load configuration
+                const configResponse = await fetch('/config');
+                const configData = await configResponse.json();
+                
+                displayModelInfo(modelData, configData);
+            } catch (error) {
+                console.error('Error loading model info:', error);
+            }
+        }
+        
+        // Display model information
+        function displayModelInfo(modelData, configData) {
+            // Architecture info
+            document.getElementById('modelArchitectureInfo').innerHTML = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>Model Type:</strong> ${modelData.model_type}</p>
+                        <p><strong>Input Shape:</strong> ${modelData.input_shape}</p>
+                        <p><strong>Output Shape:</strong> ${modelData.output_shape}</p>
+                        <p><strong>Total Parameters:</strong> ${modelData.total_params.toLocaleString()}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Architecture:</strong> ${modelData.architecture}</p>
+                        <p><strong>Status:</strong> ${modelData.loaded ? 'Loaded' : 'Not Loaded'}</p>
+                        <p><strong>Load Time:</strong> ${modelData.load_time ? new Date(modelData.load_time).toLocaleString() : 'N/A'}</p>
+                    </div>
+                </div>
+            `;
+            
+            // Configuration info
+            if (configData.config) {
+                const config = configData.config;
+                document.getElementById('modelConfigInfo').innerHTML = `
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>CNN Filters:</strong> ${config.model?.cnn_filters?.join(', ') || 'N/A'}</p>
+                            <p><strong>LSTM Units:</strong> ${config.model?.lstm_units?.join(', ') || 'N/A'}</p>
+                            <p><strong>Dense Units:</strong> ${config.model?.dense_units?.join(', ') || 'N/A'}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Attention:</strong> ${config.model?.use_attention ? 'Enabled' : 'Disabled'}</p>
+                            <p><strong>Residual:</strong> ${config.model?.use_residual ? 'Enabled' : 'Disabled'}</p>
+                            <p><strong>Learning Rate:</strong> ${config.training?.learning_rate || 'N/A'}</p>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Metrics info
+            if (modelData.training_metrics) {
+                const metrics = modelData.training_metrics;
+                document.getElementById('modelMetricsInfo').innerHTML = `
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>Accuracy:</strong> ${(metrics.accuracy * 100).toFixed(2)}%</p>
+                            <p><strong>Precision:</strong> ${(metrics.precision * 100).toFixed(2)}%</p>
+                            <p><strong>Recall:</strong> ${(metrics.recall * 100).toFixed(2)}%</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>AUC-ROC:</strong> ${metrics.auc?.toFixed(4) || 'N/A'}</p>
+                            <p><strong>AUC-PR:</strong> ${metrics.auprc?.toFixed(4) || 'N/A'}</p>
+                            <p><strong>MCC:</strong> ${metrics.mcc?.toFixed(4) || 'N/A'}</p>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+        
+        // Utility functions
+        function showAlert(message, type) {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+            alertDiv.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            
+            const container = document.querySelector('.main-container');
+            container.insertBefore(alertDiv, container.firstChild);
+            
+            // Auto-dismiss after 5 seconds
+            setTimeout(() => {
+                alertDiv.remove();
+            }, 5000);
+        }
+    </script>
+</body>
+</html>
